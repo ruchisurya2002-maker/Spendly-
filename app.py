@@ -85,12 +85,62 @@ def privacy():
 
 
 # ------------------------------------------------------------------ #
+# Hardcoded demo data for /profile (Step 4 — real DB wiring in Step 5) #
+# ------------------------------------------------------------------ #
+
+PROFILE_USER = {
+    "name": "Demo User",
+    "email": "demo@spendly.com",
+    "member_since": "March 2025",
+    "initials": "DU",
+    "display_name": "Demo User",
+}
+
+PROFILE_STATS = [
+    {"label": "Total spent", "value": "₹5,848.00"},
+    {"label": "Transactions", "value": "8"},
+    {"label": "Top category", "value": "Shopping"},
+]
+
+PROFILE_TRANSACTIONS = [
+    {"date": "2026-07-26", "description": "Groceries", "category": "Food", "amount": "₹450.00"},
+    {"date": "2026-07-23", "description": "Bus pass", "category": "Transport", "amount": "₹180.00"},
+    {"date": "2026-07-21", "description": "Electricity bill", "category": "Bills", "amount": "₹1,450.00"},
+    {"date": "2026-07-17", "description": "Pharmacy", "category": "Health", "amount": "₹620.00"},
+    {"date": "2026-07-14", "description": "Streaming subscription", "category": "Entertainment", "amount": "₹349.00"},
+    {"date": "2026-07-10", "description": "New shoes", "category": "Shopping", "amount": "₹1,899.00"},
+    {"date": "2026-07-05", "description": "Miscellaneous", "category": "Other", "amount": "₹120.00"},
+    {"date": "2026-06-29", "description": "Restaurant", "category": "Food", "amount": "₹780.00"},
+]
+
+PROFILE_CATEGORIES = [
+    {"name": "Shopping", "amount": "₹1,899.00", "percent": 100},
+    {"name": "Bills", "amount": "₹1,450.00", "percent": 76},
+    {"name": "Food", "amount": "₹1,230.00", "percent": 65},
+    {"name": "Health", "amount": "₹620.00", "percent": 33},
+    {"name": "Entertainment", "amount": "₹349.00", "percent": 18},
+    {"name": "Transport", "amount": "₹180.00", "percent": 9},
+    {"name": "Other", "amount": "₹120.00", "percent": 6},
+]
+
+
+# ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
 
 @app.route("/profile")
 def profile():
-    return "Profile page — coming in Step 4"
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    return render_template(
+        "profile.html",
+        user=PROFILE_USER,
+        stats=PROFILE_STATS,
+        transactions=PROFILE_TRANSACTIONS,
+        categories=PROFILE_CATEGORIES,
+        display_name=PROFILE_USER["display_name"],
+    )
 
 
 @app.route("/expenses/add")
