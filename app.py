@@ -1,9 +1,21 @@
 import os
+from datetime import datetime
 
 from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
-from database.db import create_user, get_db, get_user_by_email, init_db, seed_db
+from database.db import (
+    create_user,
+    get_category_totals,
+    get_db,
+    get_expense_summary,
+    get_expenses_by_user,
+    get_top_category,
+    get_user_by_email,
+    get_user_by_id,
+    init_db,
+    seed_db,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
@@ -85,61 +97,80 @@ def privacy():
 
 
 # ------------------------------------------------------------------ #
-# Hardcoded demo data for /profile (Step 4 — real DB wiring in Step 5) #
+# Profile helpers                                                     #
 # ------------------------------------------------------------------ #
 
-PROFILE_USER = {
-    "name": "Demo User",
-    "email": "demo@spendly.com",
-    "member_since": "March 2025",
-    "initials": "DU",
-    "display_name": "Demo User",
-}
-
-PROFILE_STATS = [
-    {"label": "Total spent", "value": "₹5,848.00"},
-    {"label": "Transactions", "value": "8"},
-    {"label": "Top category", "value": "Shopping"},
-]
-
-PROFILE_TRANSACTIONS = [
-    {"date": "2026-07-26", "description": "Groceries", "category": "Food", "amount": "₹450.00"},
-    {"date": "2026-07-23", "description": "Bus pass", "category": "Transport", "amount": "₹180.00"},
-    {"date": "2026-07-21", "description": "Electricity bill", "category": "Bills", "amount": "₹1,450.00"},
-    {"date": "2026-07-17", "description": "Pharmacy", "category": "Health", "amount": "₹620.00"},
-    {"date": "2026-07-14", "description": "Streaming subscription", "category": "Entertainment", "amount": "₹349.00"},
-    {"date": "2026-07-10", "description": "New shoes", "category": "Shopping", "amount": "₹1,899.00"},
-    {"date": "2026-07-05", "description": "Miscellaneous", "category": "Other", "amount": "₹120.00"},
-    {"date": "2026-06-29", "description": "Restaurant", "category": "Food", "amount": "₹780.00"},
-]
-
-PROFILE_CATEGORIES = [
-    {"name": "Shopping", "amount": "₹1,899.00", "percent": 100},
-    {"name": "Bills", "amount": "₹1,450.00", "percent": 76},
-    {"name": "Food", "amount": "₹1,230.00", "percent": 65},
-    {"name": "Health", "amount": "₹620.00", "percent": 33},
-    {"name": "Entertainment", "amount": "₹349.00", "percent": 18},
-    {"name": "Transport", "amount": "₹180.00", "percent": 9},
-    {"name": "Other", "amount": "₹120.00", "percent": 6},
-]
+def _format_currency(amount):
+    return f"₹{amount:,.2f}"
 
 
-# ------------------------------------------------------------------ #
-# Placeholder routes — students will implement these                  #
-# ------------------------------------------------------------------ #
+def _format_member_since(created_at):
+    dt = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
+    return dt.strftime("%B %Y")
+
 
 @app.route("/profile")
 def profile():
     if not session.get("user_id"):
         return redirect(url_for("login"))
 
+    user_id = session["user_id"]
+    user_row = get_user_by_id(user_id)
+    user = {
+        "name": user_row["name"],
+        "email": user_row["email"],
+        "member_since": _format_member_since(user_row["created_at"]),
+        "initials": "".join(p[0] for p in user_row["name"].split()[:2]).upper(),
+    }
+
+    # ==== SUBAGENT 1: build `transactions` from get_expenses_by_user() ====
+    expense_rows = get_expenses_by_user(user_id)
+    transactions = [
+        {
+            "date": row["date"],
+            "description": row["description"] or "",
+            "category": row["category"],
+            "amount": _format_currency(row["amount"]),
+        }
+        for row in expense_rows
+    ]
+    # ==== END SUBAGENT 1 ====
+
+    # ==== SUBAGENT 2: build `stats` from get_expense_summary()/get_top_category() ====
+    summary = get_expense_summary(user_id)
+    top_category = get_top_category(user_id)
+    stats = [
+        {"label": "Total spent", "value": _format_currency(summary["total"])},
+        {"label": "Transactions", "value": str(summary["count"])},
+        {
+            "label": "Top category",
+            "value": top_category["category"] if top_category else "—",
+        },
+    ]
+    # ==== END SUBAGENT 2 ====
+
+    # ==== SUBAGENT 3: build `categories` from get_category_totals() ====
+    category_rows = get_category_totals(user_id)
+    categories = []
+    if category_rows:
+        max_total = category_rows[0]["total"]
+        categories = [
+            {
+                "name": row["category"],
+                "amount": _format_currency(row["total"]),
+                "percent": round(row["total"] / max_total * 100),
+            }
+            for row in category_rows
+        ]
+    # ==== END SUBAGENT 3 ====
+
     return render_template(
         "profile.html",
-        user=PROFILE_USER,
-        stats=PROFILE_STATS,
-        transactions=PROFILE_TRANSACTIONS,
-        categories=PROFILE_CATEGORIES,
-        display_name=PROFILE_USER["display_name"],
+        user=user,
+        stats=stats,
+        transactions=transactions,
+        categories=categories,
+        display_name=user["name"],
     )
 
 
