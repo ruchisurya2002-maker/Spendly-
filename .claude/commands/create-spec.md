@@ -1,128 +1,104 @@
----
-description: Create a spec file and feature branch for the next Spendly step
-argument-hint: "Step number and feature name e.g. 2 registration"
-allowed-tools: Read, Write, Glob, Bash(git:*)
----
-
-You are a senior developer spinning up a new feature for the
-Spendly expense tracker. Always follow the rules in CLAUDE.md.
-
-User input: $ARGUMENTS
-
-## Step 1 — Check working directory is clean
-Run `git status` and check for uncommitted, unstaged, or
-untracked files. If any exist, stop immediately and tell
-the user to commit or stash changes before proceeding.
-DO NOT CONTINUE until the working directory is clean.
-
-## Step 2 — Parse the arguments
-From $ARGUMENTS extract:
-
-1. `step_number` — zero-padded to 2 digits: 2 → 02, 11 → 11
-
-2. `feature_title` — human readable title in Title Case
-   - Example: "Registration" or "Login and Logout"
-
-3. `feature_slug` — git and file safe slug
-   - Lowercase, kebab-case
-   - Only a-z, 0-9 and -
-   - Maximum 40 characters
-   - Example: registration, login-logout
-
-4. `branch_name` — format: `feature/<feature_slug>`
-   - Example: `feature/registration`
-
-If you cannot infer these from $ARGUMENTS, ask the user
-to clarify before proceeding.
-
-## Step 3 — Check branch name is not taken
-Run `git branch` to list existing branches.
-If `branch_name` is already taken, append a number:
-`feature/registration-01`, `feature/registration-02` etc.
-
-## Step 4 — Switch to main and pull latest
-Run:
-```
-git checkout main
-git pull origin main
-```
-
-## Step 5 — Create and switch to the feature branch
-Run:
-```
-git checkout -b <branch_name>
-```
-
-## Step 6 — Research the codebase
-Read these files before writing the spec:
-- `CLAUDE.md` — roadmap, conventions, schema
-- `app.py` — existing routes and structure
-- `database/db.py` — existing schema and functions
-- All files in `.claude/specs/` — avoid duplicating existing specs
-
-## Step 7 — Write the spec
-Generate a spec document with this exact structure:
-
----
-# Spec: <feature_title>
+# Spec: Backend Connection
 
 ## Overview
-One paragraph describing what this feature does and why
-it exists at this stage of the Spendly roadmap.
+Step 5 replaces all hardcoded data in the `/profile` route with live queries
+against the SQLite database. The profile page currently renders a static demo
+user, fixed summary stats, a hand-typed transaction list, and a hardcoded
+category breakdown. This step wires those four sections to real data so that
+every logged-in user sees their own expenses. Three parallel subagents handle
+the three independent data concerns — transaction history, summary stats, and
+category breakdown — before being integrated into the single `/profile` route.
 
 ## Depends on
-Which previous steps this feature requires to be complete.
+- Step 1: Database setup (tables and `get_db()` exist)
+- Step 2: Registration (users are stored in the database)
+- Step 3: Login / Logout (`session["user_id"]` is set on login)
+- Step 4: Profile page static UI (template already renders all four sections)
 
 ## Routes
-Every new route needed:
-- `METHOD /path` — description — access level (public/logged-in)
-
-If no new routes: state "No new routes".
+No new routes. The existing `GET /profile` route is modified.
 
 ## Database changes
-Any new tables, columns, or constraints needed.
-Always verify against `database/db.py` before writing this.
-If none: state "No database changes".
+No database changes. The `users` and `expenses` tables already have all
+required columns (`user_id`, `amount`, `category`, `date`, `description`,
+`created_at`).
 
 ## Templates
-- **Create:** list new templates with their path
-- **Modify:** list existing templates and what changes
+- **Modify**: `templates/profile.html`
+  - Amounts must be rendered with the ₹ symbol (Indian Rupee).
+  - All four dynamic sections (user info, summary stats, transaction list,
+    category breakdown) are already present — no structural changes needed,
+    only the Jinja variables they consume are now real.
 
 ## Files to change
-Every file that will be modified.
+- `app.py` — replace hardcoded data in the `profile()` view with DB queries
+- `templates/profile.html` — confirm ₹ symbol is used for all currency display
 
 ## Files to create
-Every new file that will be created.
+- `database/queries.py` — pure query helpers (no Flask imports), one function
+  per data concern:
+  - `get_user_by_id(user_id)` → dict with `name`, `email`, `member_since`
+  - `get_summary_stats(user_id)` → dict with `total_spent`, `transaction_count`, `top_category`
+  - `get_recent_transactions(user_id, limit=10)` → list of dicts, each with `date`, `description`, `category`, `amount`
+  - `get_category_breakdown(user_id)` → list of dicts, each with `name`, `amount`, `pct` (percentage of total, rounded to nearest int)
 
 ## New dependencies
-Any new pip packages. If none: state "No new dependencies".
+No new dependencies.
 
 ## Rules for implementation
-Specific constraints Claude must follow. Always include:
-- No SQLAlchemy or ORMs
-- Parameterised queries only
-- Passwords hashed with werkzeug
+- No SQLAlchemy or ORMs — raw `sqlite3` only via `get_db()`
+- Parameterised queries only — never string-format values into SQL
+- Foreign keys PRAGMA must be enabled on every connection (already done in `get_db()`)
 - Use CSS variables — never hardcode hex values
 - All templates extend `base.html`
+- No inline styles
+- Currency must always display as ₹ — never £ or $
+- `member_since` must be derived from `users.created_at` and formatted as
+  "Month YYYY" (e.g. "January 2026")
+- `pct` values in category breakdown must sum to 100; use integer rounding and
+  adjust the largest category to absorb any rounding remainder
+- If a user has no expenses, summary stats should return zeros and empty lists
+  rather than raising exceptions
+- Query helpers in `database/queries.py` must call `get_db()` internally and
+  close the connection before returning
+
+## Tests to write
+
+### Unit tests
+File: `tests/test_backend_connection.py`
+
+| Function | Input | Expected output |
+|---|---|---|
+| `get_user_by_id` | valid `user_id` | dict with correct `name`, `email`, `member_since` |
+| `get_user_by_id` | non-existent id | `None` |
+| `get_summary_stats` | `user_id` with expenses | correct `total_spent`, `transaction_count`, `top_category` |
+| `get_summary_stats` | `user_id` with no expenses | `{"total_spent": 0, "transaction_count": 0, "top_category": "—"}` |
+| `get_recent_transactions` | `user_id` with expenses | list ordered newest-first, each item has `date`, `description`, `category`, `amount` |
+| `get_recent_transactions` | `user_id` with no expenses | empty list |
+| `get_category_breakdown` | `user_id` with expenses | list ordered by `amount` desc; `pct` values are integers summing to 100 |
+| `get_category_breakdown` | `user_id` with no expenses | empty list |
+
+### Route tests
+`GET /profile` — unauthenticated:
+- Redirects to `/login` (302)
+
+`GET /profile` — authenticated as seed user:
+- Returns 200
+- Response contains the seed user's name ("Demo User")
+- Response contains the seed user's email ("demo@spendly.com")
+- Response contains ₹ symbol
+- `total_spent` matches sum of all seed expenses (346.24)
+- `transaction_count` is 8
+- `top_category` is "Bills" (highest single-category total)
+- Transaction list appears in newest-first order
+- Category breakdown contains all 7 categories
 
 ## Definition of done
-A specific testable checklist. Each item must be
-something that can be verified by running the app.
----
-
-## Step 8 — Save the spec
-Save to: `.claude/specs/<step_number>-<feature_slug>.md`
-
-## Step 9 — Report to the user
-Print a short summary in this exact format:
-```
-Branch:    <branch_name>
-Spec file: .claude/specs/<step_number>-<feature_slug>.md
-Title:     <feature_title>
-```
-
-Then tell the user:
-"Review the spec at `.claude/specs/<step_number>-<feature_slug>.md`
-then enter Plan Mode with Shift+Tab twice to begin implementation."
-
-Do not print the full spec in chat unless explicitly asked.
+- [ ] Logging in as the seed user (demo@spendly.com / demo123) shows "Demo User" and "demo@spendly.com" on the profile page — not the hardcoded strings
+- [ ] Total spent displayed on the profile page equals ₹346.24
+- [ ] Transaction count displayed is 8
+- [ ] Top category displayed is "Bills"
+- [ ] Transaction list shows 8 rows ordered newest date first
+- [ ] Category breakdown shows 7 categories with percentages that add up to 100 %
+- [ ] All amounts on the page display the ₹ symbol
+- [ ] Registering a brand-new user and visiting `/profile` shows ₹0.00 total spent, 0 transactions, and an empty category breakdown — no errors

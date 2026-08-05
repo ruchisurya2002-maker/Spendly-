@@ -98,3 +98,59 @@ def create_user(name, email, password):
     user_id = cursor.lastrowid
     conn.close()
     return user_id
+
+
+def get_user_by_id(user_id):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+    return user
+
+
+# ==== SUBAGENT 1: transaction history query ====
+def get_expenses_by_user(user_id):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC",
+        (user_id,),
+    ).fetchall()
+    conn.close()
+    return rows
+# ==== END SUBAGENT 1 ====
+
+
+# ==== SUBAGENT 2: summary stats queries ====
+def get_expense_summary(user_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM expenses WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    conn.close()
+    return row
+
+
+def get_top_category(user_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT category, SUM(amount) AS total FROM expenses WHERE user_id = ? GROUP BY category ORDER BY total DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    conn.close()
+    return row
+# ==== END SUBAGENT 2 ====
+
+
+# ==== SUBAGENT 3: category breakdown query ====
+def get_category_totals(user_id):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT category, SUM(amount) AS total FROM expenses "
+        "WHERE user_id = ? GROUP BY category ORDER BY total DESC",
+        (user_id,),
+    ).fetchall()
+    conn.close()
+    return rows
+# ==== END SUBAGENT 3 ====
