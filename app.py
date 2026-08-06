@@ -1,7 +1,8 @@
+import calendar
 import os
-from datetime import datetime
+from datetime import date, datetime
 
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 from database.db import (
@@ -109,6 +110,70 @@ def _format_member_since(created_at):
     return dt.strftime("%B %Y")
 
 
+def _parse_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _shift_months(d, n):
+    month_index = d.month - 1 + n
+    year = d.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def _date_presets(today):
+    return [
+        ("This Month", date(today.year, today.month, 1), today),
+        ("Last 3 Months", _shift_months(today, -3), today),
+        ("Last 6 Months", _shift_months(today, -6), today),
+        ("All Time", None, None),
+    ]
+
+
+def _resolve_date_filter(args, today):
+    """Resolve date_from/date_to from query args, matching them against presets.
+
+    Returns (date_from_str, date_to_str, filters, is_custom_active).
+    """
+    parsed_from = _parse_date(args.get("date_from"))
+    parsed_to = _parse_date(args.get("date_to"))
+
+    if parsed_from is None or parsed_to is None:
+        date_from, date_to = None, None
+    elif parsed_from > parsed_to:
+        flash("Start date must be before end date.")
+        date_from, date_to = None, None
+    else:
+        date_from, date_to = parsed_from, parsed_to
+
+    date_from_str = date_from.isoformat() if date_from else None
+    date_to_str = date_to.isoformat() if date_to else None
+
+    filters = []
+    for label, preset_from, preset_to in _date_presets(today):
+        preset_from_str = preset_from.isoformat() if preset_from else None
+        preset_to_str = preset_to.isoformat() if preset_to else None
+        active = date_from_str == preset_from_str and date_to_str == preset_to_str
+        filters.append({
+            "label": label,
+            "date_from": preset_from_str,
+            "date_to": preset_to_str,
+            "active": active,
+        })
+
+    is_custom_active = bool(date_from_str and date_to_str) and not any(
+        f["active"] for f in filters
+    )
+
+    return date_from_str, date_to_str, filters, is_custom_active
+
+
 @app.route("/profile")
 def profile():
     if not session.get("user_id"):
@@ -123,8 +188,12 @@ def profile():
         "initials": "".join(p[0] for p in user_row["name"].split()[:2]).upper(),
     }
 
+    date_from_str, date_to_str, filters, is_custom_active = _resolve_date_filter(
+        request.args, date.today()
+    )
+
     # ==== SUBAGENT 1: build `transactions` from get_expenses_by_user() ====
-    expense_rows = get_expenses_by_user(user_id)
+    expense_rows = get_expenses_by_user(user_id, date_from_str, date_to_str)
     transactions = [
         {
             "date": row["date"],
@@ -137,8 +206,8 @@ def profile():
     # ==== END SUBAGENT 1 ====
 
     # ==== SUBAGENT 2: build `stats` from get_expense_summary()/get_top_category() ====
-    summary = get_expense_summary(user_id)
-    top_category = get_top_category(user_id)
+    summary = get_expense_summary(user_id, date_from_str, date_to_str)
+    top_category = get_top_category(user_id, date_from_str, date_to_str)
     stats = [
         {"label": "Total spent", "value": _format_currency(summary["total"])},
         {"label": "Transactions", "value": str(summary["count"])},
@@ -150,7 +219,7 @@ def profile():
     # ==== END SUBAGENT 2 ====
 
     # ==== SUBAGENT 3: build `categories` from get_category_totals() ====
-    category_rows = get_category_totals(user_id)
+    category_rows = get_category_totals(user_id, date_from_str, date_to_str)
     categories = []
     if category_rows:
         max_total = category_rows[0]["total"]
@@ -171,6 +240,10 @@ def profile():
         transactions=transactions,
         categories=categories,
         display_name=user["name"],
+        filters=filters,
+        custom_date_from=date_from_str or "",
+        custom_date_to=date_to_str or "",
+        is_custom_active=is_custom_active,
     )
 
 

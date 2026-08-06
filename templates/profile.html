@@ -20,6 +20,22 @@
             </div>
         </div>
 
+        <div class="profile-filter-bar">
+            <div class="profile-filter-presets">
+                {% for preset in filters %}
+                <a href="{{ url_for('profile', date_from=preset.date_from, date_to=preset.date_to) }}"
+                   class="filter-pill{% if preset.active %} active{% endif %}">{{ preset.label }}</a>
+                {% endfor %}
+            </div>
+            <form method="get" action="{{ url_for('profile') }}" class="profile-filter-custom{% if is_custom_active %} active{% endif %}">
+                <label for="date_from">From</label>
+                <input type="date" id="date_from" name="date_from" value="{{ custom_date_from }}">
+                <label for="date_to">To</label>
+                <input type="date" id="date_to" name="date_to" value="{{ custom_date_to }}">
+                <button type="submit" class="filter-apply">Apply</button>
+            </form>
+        </div>
+
         <div>
             <h2 class="profile-section-title">Summary</h2>
             <div class="profile-stats">

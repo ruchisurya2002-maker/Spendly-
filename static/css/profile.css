@@ -74,6 +74,90 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Date filter bar                                                     */
+/* ------------------------------------------------------------------ */
+
+.profile-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+}
+
+.profile-filter-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.filter-pill {
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    background: var(--paper);
+}
+
+.filter-pill:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.filter-pill.active {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.profile-filter-custom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+}
+
+.profile-filter-custom.active {
+    background: var(--accent-light);
+}
+
+.profile-filter-custom input[type="date"] {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.3rem 0.5rem;
+    background: var(--paper-card);
+}
+
+.filter-apply {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--paper-card);
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+}
+
+.filter-apply:hover {
+    opacity: 0.9;
+}
+
+/* ------------------------------------------------------------------ */
 /* Summary stats                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -235,6 +319,11 @@
     .profile-card {
         flex-direction: column;
         text-align: center;
+    }
+
+    .profile-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
     }
 
     .profile-table thead {

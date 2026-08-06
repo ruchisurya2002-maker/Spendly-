@@ -109,12 +109,19 @@ def get_user_by_id(user_id):
     return user
 
 
+def _date_range_clause(date_from, date_to):
+    if date_from is not None and date_to is not None:
+        return " AND date BETWEEN ? AND ?", (date_from, date_to)
+    return "", ()
+
+
 # ==== SUBAGENT 1: transaction history query ====
-def get_expenses_by_user(user_id):
+def get_expenses_by_user(user_id, date_from=None, date_to=None):
+    clause, params = _date_range_clause(date_from, date_to)
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC",
-        (user_id,),
+        "SELECT * FROM expenses WHERE user_id = ?" + clause + " ORDER BY date DESC, id DESC",
+        (user_id, *params),
     ).fetchall()
     conn.close()
     return rows
@@ -122,21 +129,25 @@ def get_expenses_by_user(user_id):
 
 
 # ==== SUBAGENT 2: summary stats queries ====
-def get_expense_summary(user_id):
+def get_expense_summary(user_id, date_from=None, date_to=None):
+    clause, params = _date_range_clause(date_from, date_to)
     conn = get_db()
     row = conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM expenses WHERE user_id = ?",
-        (user_id,),
+        "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count "
+        "FROM expenses WHERE user_id = ?" + clause,
+        (user_id, *params),
     ).fetchone()
     conn.close()
     return row
 
 
-def get_top_category(user_id):
+def get_top_category(user_id, date_from=None, date_to=None):
+    clause, params = _date_range_clause(date_from, date_to)
     conn = get_db()
     row = conn.execute(
-        "SELECT category, SUM(amount) AS total FROM expenses WHERE user_id = ? GROUP BY category ORDER BY total DESC LIMIT 1",
-        (user_id,),
+        "SELECT category, SUM(amount) AS total FROM expenses "
+        "WHERE user_id = ?" + clause + " GROUP BY category ORDER BY total DESC LIMIT 1",
+        (user_id, *params),
     ).fetchone()
     conn.close()
     return row
@@ -144,12 +155,13 @@ def get_top_category(user_id):
 
 
 # ==== SUBAGENT 3: category breakdown query ====
-def get_category_totals(user_id):
+def get_category_totals(user_id, date_from=None, date_to=None):
+    clause, params = _date_range_clause(date_from, date_to)
     conn = get_db()
     rows = conn.execute(
         "SELECT category, SUM(amount) AS total FROM expenses "
-        "WHERE user_id = ? GROUP BY category ORDER BY total DESC",
-        (user_id,),
+        "WHERE user_id = ?" + clause + " GROUP BY category ORDER BY total DESC",
+        (user_id, *params),
     ).fetchall()
     conn.close()
     return rows
