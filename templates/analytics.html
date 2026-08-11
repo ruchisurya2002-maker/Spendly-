@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics — Spendly{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<section class="analytics-section">
+    <div class="analytics-card">
+        <div class="analytics-blob analytics-blob-top"></div>
+        <div class="analytics-blob analytics-blob-bottom"></div>
+
+        <div class="analytics-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+
+        <span class="analytics-badge">Coming Soon</span>
+
+        <h1 class="analytics-title">Advanced Analytics</h1>
+
+        <p class="analytics-desc">
+            We're working on powerful insights and visualizations to help you understand your spending patterns better.
+        </p>
+
+        <div class="analytics-dots">
+            <span class="analytics-dot"></span>
+            <span class="analytics-dot"></span>
+            <span class="analytics-dot"></span>
+        </div>
+
+        <p class="analytics-footnote">We're crafting something special</p>
+    </div>
+</section>
+
+{% endblock %}
