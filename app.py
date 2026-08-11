@@ -1,4 +1,5 @@
 import calendar
+import math
 import os
 from datetime import date, datetime
 
@@ -6,6 +7,8 @@ from flask import Flask, flash, redirect, render_template, request, session, url
 from werkzeug.security import check_password_hash
 
 from database.db import (
+    CATEGORIES,
+    create_expense,
     create_user,
     get_category_totals,
     get_db,
@@ -247,9 +250,84 @@ def profile():
     )
 
 
-@app.route("/expenses/add")
+@app.route("/analytics")
+def analytics():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    return render_template("analytics.html")
+
+
+# ------------------------------------------------------------------ #
+# Add-expense helpers                                                 #
+# ------------------------------------------------------------------ #
+
+MAX_DESCRIPTION_LENGTH = 255
+
+
+def _validate_expense_form(amount_raw, date_raw, category_raw, description_raw):
+    """Validate submitted add-expense fields.
+
+    Returns (amount, error) — amount is a float and error is None on
+    success; amount is None and error is a user-facing message otherwise.
+    """
+    try:
+        amount = float(amount_raw)
+    except ValueError:
+        amount = None
+
+    if amount is None or not math.isfinite(amount) or amount <= 0:
+        return None, "Enter a valid amount greater than zero."
+
+    if _parse_date(date_raw) is None:
+        return None, "Enter a valid date."
+
+    if category_raw not in CATEGORIES:
+        return None, "Select a valid category."
+
+    if len(description_raw) > MAX_DESCRIPTION_LENGTH:
+        return None, f"Description must be {MAX_DESCRIPTION_LENGTH} characters or fewer."
+
+    return amount, None
+
+
+@app.route("/expenses/add", methods=["GET", "POST"])
 def add_expense():
-    return "Add expense — coming in Step 7"
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        amount_raw = request.form.get("amount", "").strip()
+        date_raw = request.form.get("date", "").strip()
+        category_raw = request.form.get("category", "").strip()
+        description_raw = request.form.get("description", "").strip()
+
+        form_values = {
+            "amount": amount_raw,
+            "date": date_raw,
+            "category": category_raw,
+            "description": description_raw,
+        }
+
+        amount, error = _validate_expense_form(
+            amount_raw, date_raw, category_raw, description_raw
+        )
+        if error:
+            return render_template(
+                "expenses_add.html", categories=CATEGORIES,
+                error=error, **form_values,
+            )
+
+        create_expense(
+            session["user_id"], amount, category_raw, date_raw,
+            description_raw or None,
+        )
+        return redirect(url_for("profile"))
+
+    return render_template(
+        "expenses_add.html", categories=CATEGORIES,
+        amount="", date=date.today().isoformat(), category="", description="",
+    )
 
 
 @app.route("/expenses/<int:id>/edit")
