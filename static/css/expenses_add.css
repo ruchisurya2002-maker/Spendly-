@@ -1,0 +1,40 @@
+/* ------------------------------------------------------------------ */
+/* Add expense page                                                    */
+/* ------------------------------------------------------------------ */
+
+.expense-form-section {
+    min-height: calc(100vh - 60px - 100px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+}
+
+.expense-form-container {
+    width: 100%;
+    max-width: var(--auth-width);
+}
+
+.expense-form-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.expense-form-title {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+}
+
+.expense-form-subtitle {
+    font-size: 0.9rem;
+    color: var(--ink-muted);
+}
+
+.expense-form-card {
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 2rem;
+}
