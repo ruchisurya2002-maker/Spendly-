@@ -258,6 +258,17 @@
     font-variant-numeric: tabular-nums;
 }
 
+.profile-edit-link {
+    color: var(--ink-muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.profile-edit-link:hover {
+    color: var(--ink);
+    text-decoration: underline;
+}
+
 /* ------------------------------------------------------------------ */
 /* Category badge (shared by every category value)                     */
 /* ------------------------------------------------------------------ */
