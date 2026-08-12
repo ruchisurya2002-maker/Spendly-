@@ -113,6 +113,27 @@ def create_expense(user_id, amount, category, expense_date, description):
     return expense_id
 
 
+def get_expense_by_id(expense_id, user_id):
+    conn = get_db()
+    expense = conn.execute(
+        "SELECT * FROM expenses WHERE id = ? AND user_id = ?",
+        (expense_id, user_id),
+    ).fetchone()
+    conn.close()
+    return expense
+
+
+def update_expense(expense_id, user_id, amount, category, expense_date, description):
+    conn = get_db()
+    conn.execute(
+        "UPDATE expenses SET amount = ?, category = ?, date = ?, description = ? "
+        "WHERE id = ? AND user_id = ?",
+        (amount, category, expense_date, description, expense_id, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+
 def get_user_by_id(user_id):
     conn = get_db()
     user = conn.execute(
